@@ -9,7 +9,6 @@
 #include "cinder/gl/gl.h"
 #include "cinder/gl/Texture.h"
 #include "cinder/ImageIo.h"
-#include "boost/date_time/posix_time/posix_time.hpp"
 #include "Resources.h"
 
 using namespace ci;
@@ -26,7 +25,7 @@ class CatPictureApp : public AppBasic {
   private:
 	// Variables
 	Surface* mySurface;
-	float red, green, blue;
+	float red_, green_, blue_;
 	float time;
 
 	// Screen dimensions
@@ -35,10 +34,12 @@ class CatPictureApp : public AppBasic {
 	static const int kTextureSize = 1024;
 
 	// My methods
+	void copy(uint8_t* pixels, int x1, int y1, int width, int height, int x2, int y2);
 	void drawLine(uint8_t* pixels, int x1, int y1, int x2, int y2, Color8u color);
 	void drawRectangle(uint8_t* pixels, int xCoord, int yCoord, int width, int height, Color8u color);
 	void drawCircle(uint8_t* pixels, int xCoord, int yCoord, int radius, Color8u color);
 	void drawTriangle(uint8_t* pixels, int xCoord, int yCoord, int width, int height, Color8u color);
+	void blur(uint8_t* pixels);
 };
 
 void CatPictureApp::prepareSettings(Settings* settings) {
@@ -62,25 +63,71 @@ void CatPictureApp::update() {
 	// Some colors
 	Color8u white = Color8u( 255, 255, 255);
 	Color8u black = Color8u( 0, 0, 0 );
+	Color8u red = Color8u( 255, 0, 0 );
+	Color8u orange = Color8u( 255, 140, 0 );
+	Color8u yellow = Color8u( 255, 255, 0 );
+	Color8u green = Color8u( 102, 205, 0 );
+	Color8u cyan = Color8u( 0, 205, 205 );
+	Color8u blue = Color8u( 0, 0, 255 );
+	Color8u purple = Color8u( 224, 102, 255 );
 
 	// Makes a color that changes
-	red = (.5*sin(time/2) + 0.5)*255;
-	green = (.5*sin(time) + 0.5)*255;
-	blue = (.5*sin(time*2) + 0.5)*255;
-	Color8u x = Color8u( red, green, blue );
+	red_ = (.5*sin(time/2) + 0.5)*255;
+	green_ = (.5*sin(time) + 0.5)*255;
+	blue_ = (.5*sin(time*2) + 0.5)*255;
+	Color8u x = Color8u( red_, green_, blue_ );
 
 	// Colors the background
 	for(int i = 0; i < kAppWidth*kAppHeight; i++) {
-		pixels[3*(i)] = 0;
-		pixels[3*(i)+1] = 0;
-		pixels[3*(i)+2] = 0;
+		pixels[3*(i)] = 255;
+		pixels[3*(i)+1] = 255;
+		pixels[3*(i)+2] = 255;
+	}
+
+	// Draws rectangle border
+	drawRectangle(pixels, 10, 10, 780, 580, black);
+
+	int rainbowWidth = 60;
+	int phase = 1;
+	double rate = .58;
+	double rainbowXBeg = 442;
+	// Draws rainbow
+	for(int i = 0; i < 7; i++) {
+		for(int j = 0; j < 10; j++) {
+			if(phase == 1)
+				drawLine(pixels, (int)rainbowXBeg, 270+(j+(i*10)), 800, 330+(j+(i*10)), red);
+			else if(phase == 2)
+				drawLine(pixels, (int)rainbowXBeg, 270+(j+(i*10)), 800, 330+(j+(i*10)), orange);
+			else if(phase == 3)
+				drawLine(pixels, (int)rainbowXBeg, 270+(j+(i*10)), 800, 330+(j+(i*10)), yellow);
+			else if(phase == 4)
+				drawLine(pixels, (int)rainbowXBeg, 270+(j+(i*10)), 800, 330+(j+(i*10)), green);
+			else if(phase == 5)
+				drawLine(pixels, (int)rainbowXBeg, 270+(j+(i*10)), 800, 330+(j+(i*10)), cyan);
+			else
+				drawLine(pixels, (int)rainbowXBeg, 270+(j+(i*10)), 800, 330+(j+(i*10)), purple);
+			rainbowXBeg += rate;
+		}
+		phase++;
+	}
+	double whiteXBeg = 340;
+	// Draws white left part
+	for(int i = 0; i < 10; i++) {
+		drawLine(pixels, (int)whiteXBeg, 300+i, 0, 370+i, white);
+		whiteXBeg -= rate;
 	}
 
 	// Draws two triangles
-	drawLine(pixels, 100, 100, 700, 500, white);
-	drawRectangle(pixels, 100, 200, 100, 100, white);
 	drawTriangle(pixels, 400, 200, 230, 200, white);
 	drawTriangle(pixels, 400, 220, 195, 170, x);
+
+	// Makes three circles
+	drawCircle(pixels, 400, 185, 15, blue);
+	drawCircle(pixels, 265, 405, 15, red);
+	drawCircle(pixels, 535, 405, 15, yellow);
+
+	// Blurs the image
+	blur(pixels);
 }
 
 /**
@@ -158,7 +205,6 @@ void CatPictureApp::drawRectangle(uint8_t* pixels, int xCoord, int yCoord, int w
 
 	for(int y = yBeg; y < yEnd; y++){
 		for(int x = xBeg; x < xEnd; x++){
-
 			pixels[3*(x + y*kAppWidth)] = color.r;
 			pixels[3*(x + y*kAppWidth)+1] = color.g;
 			pixels[3*(x + y*kAppWidth)+2] = color.b;
@@ -178,7 +224,16 @@ void CatPictureApp::drawRectangle(uint8_t* pixels, int xCoord, int yCoord, int w
 void CatPictureApp::drawCircle(uint8_t* pixels, int xCoord, int yCoord, int radius, Color8u color) {
 	for(int y = yCoord-radius; y <= yCoord+radius; y++) {
 		for(int x = xCoord-radius; x <= xCoord+radius; x++) {
-
+			//Bounds test, to make sure we don't access array out of bounds
+			if(y<0 || x<0 || x>=kAppWidth || y>=kAppHeight) 
+				continue;
+			int dist = (int)sqrt((double)((x-xCoord)*(x-xCoord) + (y-yCoord)*(y-yCoord)));
+			if(dist <= radius) {
+				int a = 3*(x + y*kAppWidth);
+				pixels[a] = color.r;
+				pixels[a+1] = color.g;
+				pixels[a+2] = color.b;
+			}
 		}
 	}
 }
@@ -195,9 +250,8 @@ void CatPictureApp::drawCircle(uint8_t* pixels, int xCoord, int yCoord, int radi
  */
 void CatPictureApp::drawTriangle(uint8_t* pixels, int xCoord, int yCoord, int width, int height, Color8u color) {
 	double currentWidth = 1;
-	double rate = .75;
+	double rate = .60;
 	int yEnd = yCoord+height;
-
 	for(int y = yCoord; y < yEnd; y++) {
 		int xLeft = xCoord-(int)(currentWidth-1);
 		int xRight = xCoord+(int)(currentWidth-1);
