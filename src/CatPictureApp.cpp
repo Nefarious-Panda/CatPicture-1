@@ -1,15 +1,13 @@
 /**
- * Adam Rasfeld
- * CSE 274
- * CatPictureApp
- *
+ *  Adam Rasfeld
+ *  CSE 274
+ *  9/5/2012
+ *  CatPictureApp
  */
 
 #include "cinder/app/AppBasic.h"
 #include "cinder/gl/gl.h"
 #include "cinder/gl/Texture.h"
-#include "cinder/ImageIo.h"
-#include "Resources.h"
 
 using namespace ci;
 using namespace ci::app;
@@ -92,8 +90,8 @@ void CatPictureApp::update() {
 	double rate = .58;
 	double rainbowXBeg = 442;
 	// Draws rainbow
-	for(int i = 0; i < 7; i++) {
-		for(int j = 0; j < 10; j++) {
+	for(int i = 0; i < 6; i++) {
+		for(int j = 0; j < 8; j++) {
 			if(phase == 1)
 				drawLine(pixels, (int)rainbowXBeg, 270+(j+(i*10)), 800, 330+(j+(i*10)), red);
 			else if(phase == 2)
@@ -262,6 +260,36 @@ void CatPictureApp::drawTriangle(uint8_t* pixels, int xCoord, int yCoord, int wi
 		}
 		currentWidth += rate;
 	}
+}
+
+/**
+ *  Applies a blur to the image
+ *
+ *  @param pixels The array of pixels that we will be applying the blur to
+ **/
+void CatPictureApp::blur(uint8_t* pixels) {
+	int r, g, b;
+    for(int y = 1; y < kAppHeight-1; y++){
+        for(int x = 1; x < kAppWidth-1; x++){
+            r = 0;
+            g = 0;
+            b = 0;
+			// Adds up the values for each r, g, and b value
+            for(int yAvg = -1; yAvg <= 1; yAvg++){
+                for(int xAvg = -1; xAvg <= 1; xAvg++){
+					int a = 3*((x+xAvg) + (y+yAvg)*kAppWidth);
+                    r = r+pixels[a];
+                    g = g+pixels[a+1];
+                    b = b+pixels[a+2];
+                }
+            }
+			// Applies the average values to these pixels
+			int a = 3*(x + y*kAppWidth);
+			pixels[a] = (int)(r/9.0);
+			pixels[a+1] = (int)(g/9.0);
+			pixels[a+2] = (int)(b/9.0);
+        }
+    }
 }
 
 void CatPictureApp::draw() {
