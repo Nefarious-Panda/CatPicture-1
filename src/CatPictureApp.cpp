@@ -5,6 +5,12 @@
  *  CatPictureApp
  */
 
+// ND: First things first. I saw your program in class and from what I could see you did a really good job.
+// I really dont think there is much I would change... And no I'm not saying that because im a pink floyd fan.
+// Also I will just be commenting the recommended changes and will be marked with a ND
+// One change I would try to do for the next program is to comment a little more.. I'm not that much of a commenting 
+//   person either, but it would help with some clearity as to what exactly each method does, but not to much more!
+
 #include "cinder/app/AppBasic.h"
 #include "cinder/gl/gl.h"
 #include "cinder/gl/Texture.h"
@@ -58,6 +64,7 @@ void CatPictureApp::update() {
 	uint8_t* pixels = (*mySurface).getData(); // Get our array of pixel information
 	time = time + 0.05; // Add to timer
 
+	// ND: maybe put these in an Array for easy access?
 	// Some colors
 	Color8u white = Color8u( 255, 255, 255);
 	Color8u black = Color8u( 0, 0, 0 );
